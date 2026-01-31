@@ -68,6 +68,15 @@ const Admin = () => {
       return;
     }
 
+    if (!formData.genre) {
+      toast({
+        title: 'Ошибка',
+        description: 'Выберите жанр',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -77,6 +86,7 @@ const Admin = () => {
       });
 
       const audioUrl = await uploadToS3(audioFile, 'audio');
+      console.log('Audio uploaded:', audioUrl);
       
       let coverUrl = null;
       if (coverFile) {
@@ -85,28 +95,39 @@ const Admin = () => {
           description: 'Почти готово',
         });
         coverUrl = await uploadToS3(coverFile, 'cover');
+        console.log('Cover uploaded:', coverUrl);
       }
+
+      toast({
+        title: 'Сохранение...',
+        description: 'Добавляем релиз в каталог',
+      });
+
+      const saveData = {
+        title: formData.title,
+        artist: formData.artist,
+        genre: formData.genre,
+        year: formData.year,
+        audio_url: audioUrl,
+        cover_url: coverUrl,
+      };
+      
+      console.log('Saving release:', saveData);
 
       const response = await fetch('https://functions.poehali.dev/08ae4a7f-5e92-485c-8cbb-c62610868621', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          title: formData.title,
-          artist: formData.artist,
-          genre: formData.genre,
-          year: formData.year,
-          audio_url: audioUrl,
-          cover_url: coverUrl,
-        }),
+        body: JSON.stringify(saveData),
       });
 
-      if (!response.ok) {
-        throw new Error('Ошибка сохранения');
-      }
-
       const result = await response.json();
+      console.log('Backend response:', result);
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Ошибка сохранения');
+      }
 
       toast({
         title: 'Успешно!',
@@ -121,10 +142,15 @@ const Admin = () => {
       });
       setAudioFile(null);
       setCoverFile(null);
+      
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 1500);
     } catch (error) {
+      console.error('Upload error:', error);
       toast({
         title: 'Ошибка',
-        description: 'Не удалось загрузить релиз',
+        description: error instanceof Error ? error.message : 'Не удалось загрузить релиз',
         variant: 'destructive',
       });
     } finally {
