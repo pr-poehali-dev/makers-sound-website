@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -7,6 +7,11 @@ import Icon from '@/components/ui/icon';
 const Index = () => {
   const [selectedGenre, setSelectedGenre] = useState('Все');
   const [selectedYear, setSelectedYear] = useState('Все');
+  const [currentTrack, setCurrentTrack] = useState<number | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const releases = [
     {
@@ -16,6 +21,7 @@ const Index = () => {
       genre: 'Techno',
       year: 2024,
       cover: '/placeholder.svg',
+      preview: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
     },
     {
       id: 2,
@@ -24,6 +30,7 @@ const Index = () => {
       genre: 'Hip-Hop',
       year: 2024,
       cover: '/placeholder.svg',
+      preview: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
     },
     {
       id: 3,
@@ -32,6 +39,7 @@ const Index = () => {
       genre: 'House',
       year: 2023,
       cover: '/placeholder.svg',
+      preview: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
     },
     {
       id: 4,
@@ -40,6 +48,7 @@ const Index = () => {
       genre: 'Electronic',
       year: 2024,
       cover: '/placeholder.svg',
+      preview: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
     },
     {
       id: 5,
@@ -48,6 +57,7 @@ const Index = () => {
       genre: 'Techno',
       year: 2023,
       cover: '/placeholder.svg',
+      preview: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3',
     },
     {
       id: 6,
@@ -56,6 +66,7 @@ const Index = () => {
       genre: 'Hip-Hop',
       year: 2024,
       cover: '/placeholder.svg',
+      preview: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3',
     },
   ];
 
@@ -80,6 +91,64 @@ const Index = () => {
     { title: 'Тренды электронной музыки', date: '10 янв 2024', category: 'Индустрия' },
     { title: 'Гид по мастерингу', date: '5 янв 2024', category: 'Обучение' },
   ];
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const updateTime = () => setCurrentTime(audio.currentTime);
+    const updateDuration = () => setDuration(audio.duration);
+    const handleEnded = () => {
+      setIsPlaying(false);
+      setCurrentTime(0);
+    };
+
+    audio.addEventListener('timeupdate', updateTime);
+    audio.addEventListener('loadedmetadata', updateDuration);
+    audio.addEventListener('ended', handleEnded);
+
+    return () => {
+      audio.removeEventListener('timeupdate', updateTime);
+      audio.removeEventListener('loadedmetadata', updateDuration);
+      audio.removeEventListener('ended', handleEnded);
+    };
+  }, []);
+
+  const playTrack = (trackId: number) => {
+    const track = releases.find(r => r.id === trackId);
+    if (!track || !audioRef.current) return;
+
+    if (currentTrack === trackId) {
+      if (isPlaying) {
+        audioRef.current.pause();
+        setIsPlaying(false);
+      } else {
+        audioRef.current.play();
+        setIsPlaying(true);
+      }
+    } else {
+      audioRef.current.src = track.preview;
+      audioRef.current.play();
+      setCurrentTrack(trackId);
+      setIsPlaying(true);
+    }
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const time = parseFloat(e.target.value);
+    audio.currentTime = time;
+    setCurrentTime(time);
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const currentTrackData = releases.find(r => r.id === currentTrack);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -202,8 +271,12 @@ const Index = () => {
               >
                 <div className="aspect-square bg-gradient-to-br from-primary/30 to-primary/10 relative overflow-hidden">
                   <div className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button size="lg" className="bg-primary hover:bg-primary/90">
-                      <Icon name="Play" size={24} />
+                    <Button 
+                      size="lg" 
+                      className="bg-primary hover:bg-primary/90"
+                      onClick={() => playTrack(release.id)}
+                    >
+                      <Icon name={currentTrack === release.id && isPlaying ? "Pause" : "Play"} size={24} />
                     </Button>
                   </div>
                 </div>
@@ -297,6 +370,86 @@ const Index = () => {
           <p>© 2024 MAKERS SOUND. Все права защищены.</p>
         </div>
       </footer>
+
+      {currentTrack && (
+        <div className="fixed bottom-0 left-0 right-0 bg-black/95 backdrop-blur-lg border-t border-primary/20 z-50">
+          <audio ref={audioRef} />
+          <div className="container mx-auto px-6 py-4">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-primary/30 to-primary/10 rounded-lg flex-shrink-0"></div>
+              
+              <div className="flex-1 min-w-0">
+                <h4 className="font-bold truncate">{currentTrackData?.title}</h4>
+                <p className="text-sm text-muted-foreground truncate">{currentTrackData?.artist}</p>
+              </div>
+
+              <div className="flex-1 max-w-md mx-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs text-muted-foreground w-12 text-right">{formatTime(currentTime)}</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max={duration || 0}
+                    value={currentTime}
+                    onChange={handleSeek}
+                    className="flex-1 h-1 bg-muted rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
+                  />
+                  <span className="text-xs text-muted-foreground w-12">{formatTime(duration)}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => {
+                    const currentIndex = releases.findIndex(r => r.id === currentTrack);
+                    const prevIndex = currentIndex > 0 ? currentIndex - 1 : releases.length - 1;
+                    playTrack(releases[prevIndex].id);
+                  }}
+                >
+                  <Icon name="SkipBack" size={20} />
+                </Button>
+
+                <Button
+                  size="icon"
+                  className="bg-primary hover:bg-primary/90 w-12 h-12"
+                  onClick={() => playTrack(currentTrack)}
+                >
+                  <Icon name={isPlaying ? "Pause" : "Play"} size={24} />
+                </Button>
+
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => {
+                    const currentIndex = releases.findIndex(r => r.id === currentTrack);
+                    const nextIndex = currentIndex < releases.length - 1 ? currentIndex + 1 : 0;
+                    playTrack(releases[nextIndex].id);
+                  }}
+                >
+                  <Icon name="SkipForward" size={20} />
+                </Button>
+
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => {
+                    setCurrentTrack(null);
+                    setIsPlaying(false);
+                    if (audioRef.current) {
+                      audioRef.current.pause();
+                      audioRef.current.src = '';
+                    }
+                  }}
+                >
+                  <Icon name="X" size={20} />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
