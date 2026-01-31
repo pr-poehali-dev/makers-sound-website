@@ -21,39 +21,68 @@ const Admin = () => {
 
   const genres = ['Techno', 'Hip-Hop', 'House', 'Electronic', 'Drum & Bass', 'Ambient'];
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        resolve(base64.split(',')[1]);
+      };
+      reader.onerror = error => reject(error);
+    });
+  };
+
   const uploadToS3 = async (file: File, type: 'audio' | 'cover'): Promise<string> => {
     const extension = file.name.split('.').pop();
+    const CHUNK_SIZE = 2 * 1024 * 1024;
+    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
     
-    const urlResponse = await fetch('https://functions.poehali.dev/bbb5b851-23af-40e0-8593-26d642e30c6c', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        type,
-        extension,
-      }),
-    });
+    let uploadId = '';
+    let cdnUrl = '';
+    
+    for (let i = 0; i < totalChunks; i++) {
+      const start = i * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, file.size);
+      const chunk = file.slice(start, end);
+      
+      const chunkBase64 = await fileToBase64(chunk);
+      
+      const response = await fetch('https://functions.poehali.dev/6708de78-3916-4c66-9b70-c808ff049058', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          data: chunkBase64,
+          type,
+          extension,
+          chunk: i,
+          total_chunks: totalChunks,
+          upload_id: uploadId || undefined,
+        }),
+      });
 
-    if (!urlResponse.ok) {
-      throw new Error('Failed to get upload URL');
+      if (!response.ok) {
+        throw new Error(`Failed to upload chunk ${i + 1}/${totalChunks}`);
+      }
+
+      const result = await response.json();
+      uploadId = result.upload_id;
+      
+      if (result.completed) {
+        cdnUrl = result.cdn_url;
+      }
+      
+      if (totalChunks > 1) {
+        toast({
+          title: `Загрузка ${type === 'audio' ? 'аудио' : 'обложки'}...`,
+          description: `${Math.round((i + 1) / totalChunks * 100)}%`,
+        });
+      }
     }
-
-    const { upload_url, cdn_url } = await urlResponse.json();
     
-    const uploadResponse = await fetch(upload_url, {
-      method: 'PUT',
-      body: file,
-      headers: {
-        'Content-Type': type === 'audio' ? 'audio/mpeg' : 'image/jpeg',
-      },
-    });
-
-    if (!uploadResponse.ok) {
-      throw new Error(`Failed to upload ${type}`);
-    }
-    
-    return cdn_url;
+    return cdnUrl;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
