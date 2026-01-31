@@ -105,25 +105,41 @@ const Index = () => {
       </nav>
 
       <section id="home" className="pt-32 pb-20 px-6">
-        <div className="container mx-auto text-center">
-          <div className="animate-fade-in">
-            <Badge className="mb-6 bg-primary/20 text-primary border-primary/50">
-              Музыкальный лейбл нового поколения
-            </Badge>
-            <h2 className="text-6xl md:text-8xl font-black mb-6 tracking-tighter">
-              MAKERS<br />
-              <span className="text-primary">SOUND</span>
-            </h2>
-            <p className="text-xl md:text-2xl text-muted-foreground mb-12 max-w-2xl mx-auto">
-              Создаём звук будущего. Продюсируем, издаём и продвигаем электронную музыку на мировой уровень.
-            </p>
-            <div className="flex gap-4 justify-center">
-              <Button size="lg" className="bg-primary hover:bg-primary/90 text-white px-8">
-                Наши артисты
-              </Button>
-              <Button size="lg" variant="outline" className="border-primary/50 hover:bg-primary/10">
-                Подать заявку
-              </Button>
+        <div className="container mx-auto">
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            <div className="text-center md:text-left animate-fade-in">
+              <Badge className="mb-6 bg-primary/20 text-primary border-primary/50">
+                Музыкальный лейбл нового поколения
+              </Badge>
+              <h2 className="text-6xl md:text-8xl font-black mb-6 tracking-tighter">
+                MAKERS<br />
+                <span className="text-primary">SOUND</span>
+              </h2>
+              <p className="text-xl md:text-2xl text-muted-foreground mb-12">
+                Создаём звук будущего. Продюсируем, издаём и продвигаем электронную музыку на мировой уровень.
+              </p>
+              <div className="flex gap-4 justify-center md:justify-start">
+                <Button size="lg" className="bg-primary hover:bg-primary/90 text-white px-8">
+                  Наши артисты
+                </Button>
+                <Button size="lg" variant="outline" className="border-primary/50 hover:bg-primary/10">
+                  Подать заявку
+                </Button>
+              </div>
+            </div>
+            
+            <div className="flex justify-center items-center">
+              <div className="relative w-80 h-80 md:w-96 md:h-96">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/50 to-primary/20 rounded-full blur-3xl opacity-30"></div>
+                <div className="relative w-full h-full animate-spin-slow">
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary to-primary/30 shadow-2xl shadow-primary/50">
+                    <div className="absolute inset-6 rounded-full bg-black flex items-center justify-center">
+                      <div className="w-16 h-16 rounded-full bg-primary/30 border-4 border-primary"></div>
+                    </div>
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full"></div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
