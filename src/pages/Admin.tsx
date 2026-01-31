@@ -21,16 +21,39 @@ const Admin = () => {
 
   const genres = ['Techno', 'Hip-Hop', 'House', 'Electronic', 'Drum & Bass', 'Ambient'];
 
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => {
-        const base64 = reader.result as string;
-        resolve(base64.split(',')[1]);
-      };
-      reader.onerror = error => reject(error);
+  const uploadToS3 = async (file: File, type: 'audio' | 'cover'): Promise<string> => {
+    const extension = file.name.split('.').pop();
+    
+    const urlResponse = await fetch('https://functions.poehali.dev/bbb5b851-23af-40e0-8593-26d642e30c6c', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        type,
+        extension,
+      }),
     });
+
+    if (!urlResponse.ok) {
+      throw new Error('Failed to get upload URL');
+    }
+
+    const { upload_url, cdn_url } = await urlResponse.json();
+    
+    const uploadResponse = await fetch(upload_url, {
+      method: 'PUT',
+      body: file,
+      headers: {
+        'Content-Type': type === 'audio' ? 'audio/mpeg' : 'image/jpeg',
+      },
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error(`Failed to upload ${type}`);
+    }
+    
+    return cdn_url;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -48,8 +71,21 @@ const Admin = () => {
     setLoading(true);
 
     try {
-      const audioBase64 = await fileToBase64(audioFile);
-      const coverBase64 = coverFile ? await fileToBase64(coverFile) : null;
+      toast({
+        title: 'Загрузка файлов...',
+        description: 'Загружаем аудио в облако',
+      });
+
+      const audioUrl = await uploadToS3(audioFile, 'audio');
+      
+      let coverUrl = null;
+      if (coverFile) {
+        toast({
+          title: 'Загрузка обложки...',
+          description: 'Почти готово',
+        });
+        coverUrl = await uploadToS3(coverFile, 'cover');
+      }
 
       const response = await fetch('https://functions.poehali.dev/08ae4a7f-5e92-485c-8cbb-c62610868621', {
         method: 'POST',
@@ -61,13 +97,13 @@ const Admin = () => {
           artist: formData.artist,
           genre: formData.genre,
           year: formData.year,
-          audio: audioBase64,
-          cover: coverBase64,
+          audio_url: audioUrl,
+          cover_url: coverUrl,
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Ошибка загрузки');
+        throw new Error('Ошибка сохранения');
       }
 
       const result = await response.json();

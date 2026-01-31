@@ -1,13 +1,9 @@
 import json
 import os
-import base64
-import uuid
 import psycopg2
-import boto3
-from datetime import datetime
 
 def handler(event: dict, context) -> dict:
-    '''API для загрузки музыкальных релизов с файлами в S3 и сохранением в БД'''
+    '''API для сохранения метаданных релизов в БД (файлы загружаются напрямую из браузера)'''
     method = event.get('httpMethod', 'POST')
     
     if method == 'OPTIONS':
@@ -25,7 +21,7 @@ def handler(event: dict, context) -> dict:
     if method == 'GET':
         return get_releases()
     elif method == 'POST':
-        return upload_release(event)
+        return save_release(event)
     
     return {
         'statusCode': 405,
@@ -68,7 +64,7 @@ def get_releases() -> dict:
         'isBase64Encoded': False
     }
 
-def upload_release(event: dict) -> dict:
+def save_release(event: dict) -> dict:
     try:
         body = json.loads(event.get('body', '{}'))
         
@@ -76,34 +72,16 @@ def upload_release(event: dict) -> dict:
         artist = body.get('artist')
         genre = body.get('genre')
         year = body.get('year')
-        audio_base64 = body.get('audio')
-        cover_base64 = body.get('cover')
+        audio_url = body.get('audio_url')
+        cover_url = body.get('cover_url')
         
-        if not all([title, artist, genre, year, audio_base64]):
+        if not all([title, artist, genre, year, audio_url]):
             return {
                 'statusCode': 400,
                 'headers': {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'},
                 'body': json.dumps({'error': 'Missing required fields'}),
                 'isBase64Encoded': False
             }
-        
-        s3 = boto3.client('s3',
-            endpoint_url='https://bucket.poehali.dev',
-            aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
-            aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY']
-        )
-        
-        audio_data = base64.b64decode(audio_base64)
-        audio_key = f'releases/{uuid.uuid4()}.mp3'
-        s3.put_object(Bucket='files', Key=audio_key, Body=audio_data, ContentType='audio/mpeg')
-        audio_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{audio_key}"
-        
-        cover_url = None
-        if cover_base64:
-            cover_data = base64.b64decode(cover_base64)
-            cover_key = f'covers/{uuid.uuid4()}.jpg'
-            s3.put_object(Bucket='files', Key=cover_key, Body=cover_data, ContentType='image/jpeg')
-            cover_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{cover_key}"
         
         conn = psycopg2.connect(os.environ['DATABASE_URL'])
         cur = conn.cursor()
