@@ -11,9 +11,28 @@ const Index = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [releases, setReleases] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const releases = [
+  useEffect(() => {
+    fetch('https://functions.poehali.dev/08ae4a7f-5e92-485c-8cbb-c62610868621')
+      .then(res => res.json())
+      .then(data => {
+        if (data.releases && data.releases.length > 0) {
+          setReleases(data.releases);
+        } else {
+          setReleases(defaultReleases);
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        setReleases(defaultReleases);
+        setLoading(false);
+      });
+  }, []);
+
+  const defaultReleases = [
     {
       id: 1,
       title: 'Night Pulse',
@@ -70,8 +89,9 @@ const Index = () => {
     },
   ];
 
-  const genres = ['Все', 'Techno', 'Hip-Hop', 'House', 'Electronic'];
-  const years = ['Все', '2024', '2023'];
+  const genres = ['Все', 'Techno', 'Hip-Hop', 'House', 'Electronic', 'Drum & Bass', 'Ambient'];
+  const allYears = Array.from(new Set(releases.map(r => r.year))).sort((a, b) => b - a);
+  const years = ['Все', ...allYears.map(String)];
 
   const filteredReleases = releases.filter((release) => {
     const genreMatch = selectedGenre === 'Все' || release.genre === selectedGenre;
@@ -167,9 +187,15 @@ const Index = () => {
             <a href="#blog" className="hover:text-primary transition-colors">Блог</a>
             <a href="#contact" className="hover:text-primary transition-colors">Контакты</a>
           </div>
-          <Button className="bg-primary hover:bg-primary/90 text-white">
-            Связаться
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" className="border-primary/50" onClick={() => window.location.href = '/admin'}>
+              <Icon name="Upload" size={18} className="mr-2" />
+              Админ
+            </Button>
+            <Button className="bg-primary hover:bg-primary/90 text-white">
+              Связаться
+            </Button>
+          </div>
         </div>
       </nav>
 

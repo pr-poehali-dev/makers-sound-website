@@ -1,0 +1,27 @@
+{
+  "tests": [
+    {
+      "name": "Test GET releases endpoint",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "releases": "array"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Test POST missing fields",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "title": "Test Track"
+      },
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
