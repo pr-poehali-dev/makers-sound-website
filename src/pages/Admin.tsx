@@ -21,68 +21,39 @@ const Admin = () => {
 
   const genres = ['Techno', 'Hip-Hop', 'House', 'Electronic', 'Drum & Bass', 'Ambient'];
 
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => {
-        const base64 = reader.result as string;
-        resolve(base64.split(',')[1]);
-      };
-      reader.onerror = error => reject(error);
-    });
-  };
-
   const uploadToS3 = async (file: File, type: 'audio' | 'cover'): Promise<string> => {
     const extension = file.name.split('.').pop();
-    const CHUNK_SIZE = 2 * 1024 * 1024;
-    const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
     
-    let uploadId = '';
-    let cdnUrl = '';
+    const urlResponse = await fetch('https://functions.poehali.dev/bbb5b851-23af-40e0-8593-26d642e30c6c', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        type,
+        extension,
+      }),
+    });
+
+    if (!urlResponse.ok) {
+      throw new Error('Failed to get upload URL');
+    }
+
+    const { upload_url, cdn_url } = await urlResponse.json();
     
-    for (let i = 0; i < totalChunks; i++) {
-      const start = i * CHUNK_SIZE;
-      const end = Math.min(start + CHUNK_SIZE, file.size);
-      const chunk = file.slice(start, end);
-      
-      const chunkBase64 = await fileToBase64(chunk);
-      
-      const response = await fetch('https://functions.poehali.dev/6708de78-3916-4c66-9b70-c808ff049058', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          data: chunkBase64,
-          type,
-          extension,
-          chunk: i,
-          total_chunks: totalChunks,
-          upload_id: uploadId || undefined,
-        }),
-      });
+    const uploadResponse = await fetch(upload_url, {
+      method: 'PUT',
+      body: file,
+      headers: {
+        'Content-Type': type === 'audio' ? 'audio/mpeg' : 'image/jpeg',
+      },
+    });
 
-      if (!response.ok) {
-        throw new Error(`Failed to upload chunk ${i + 1}/${totalChunks}`);
-      }
-
-      const result = await response.json();
-      uploadId = result.upload_id;
-      
-      if (result.completed) {
-        cdnUrl = result.cdn_url;
-      }
-      
-      if (totalChunks > 1) {
-        toast({
-          title: `Загрузка ${type === 'audio' ? 'аудио' : 'обложки'}...`,
-          description: `${Math.round((i + 1) / totalChunks * 100)}%`,
-        });
-      }
+    if (!uploadResponse.ok) {
+      throw new Error(`Failed to upload ${type}`);
     }
     
-    return cdnUrl;
+    return cdn_url;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -97,15 +68,6 @@ const Admin = () => {
       return;
     }
 
-    if (!formData.genre) {
-      toast({
-        title: 'Ошибка',
-        description: 'Выберите жанр',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     setLoading(true);
 
     try {
@@ -115,7 +77,6 @@ const Admin = () => {
       });
 
       const audioUrl = await uploadToS3(audioFile, 'audio');
-      console.log('Audio uploaded:', audioUrl);
       
       let coverUrl = null;
       if (coverFile) {
@@ -124,39 +85,28 @@ const Admin = () => {
           description: 'Почти готово',
         });
         coverUrl = await uploadToS3(coverFile, 'cover');
-        console.log('Cover uploaded:', coverUrl);
       }
-
-      toast({
-        title: 'Сохранение...',
-        description: 'Добавляем релиз в каталог',
-      });
-
-      const saveData = {
-        title: formData.title,
-        artist: formData.artist,
-        genre: formData.genre,
-        year: formData.year,
-        audio_url: audioUrl,
-        cover_url: coverUrl,
-      };
-      
-      console.log('Saving release:', saveData);
 
       const response = await fetch('https://functions.poehali.dev/08ae4a7f-5e92-485c-8cbb-c62610868621', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(saveData),
+        body: JSON.stringify({
+          title: formData.title,
+          artist: formData.artist,
+          genre: formData.genre,
+          year: formData.year,
+          audio_url: audioUrl,
+          cover_url: coverUrl,
+        }),
       });
 
-      const result = await response.json();
-      console.log('Backend response:', result);
-
       if (!response.ok) {
-        throw new Error(result.error || 'Ошибка сохранения');
+        throw new Error('Ошибка сохранения');
       }
+
+      const result = await response.json();
 
       toast({
         title: 'Успешно!',
@@ -171,15 +121,10 @@ const Admin = () => {
       });
       setAudioFile(null);
       setCoverFile(null);
-      
-      setTimeout(() => {
-        window.location.href = '/';
-      }, 1500);
     } catch (error) {
-      console.error('Upload error:', error);
       toast({
         title: 'Ошибка',
-        description: error instanceof Error ? error.message : 'Не удалось загрузить релиз',
+        description: 'Не удалось загрузить релиз',
         variant: 'destructive',
       });
     } finally {
